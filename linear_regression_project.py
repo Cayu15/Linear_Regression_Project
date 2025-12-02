@@ -157,21 +157,20 @@ def update_info(t0, t1):
     for xi, yi in zip(x, y):
         info_text.insert(tk.END, f"{xi:6.2f} {yi:6.2f} {t0:8.4f} {t1:8.4f} {c:8.4f}\n")
 
-# Adatok beolvasása CSV-ből
+# Adatok beolvasása, generálása, megadása
 def load_file():
     global x, y
     file_path = filedialog.askopenfilename(filetypes=[("CSV files","*.csv"), ("All files","*.*")])
     if not file_path:
         return
     try:
-        # Próbálja felismerni a delimiter-t (, ; space/tab)
         with open(file_path, 'r', encoding='utf-8') as f:
             sniffer = csv.Sniffer()
             sample = f.read(1024)
             f.seek(0)
             dialect = sniffer.sniff(sample, delimiters=",;\t ")
             reader = csv.reader(f, dialect)
-            next(reader, None)  # fejléc átugrása
+            next(reader, None) 
             data_list = []
             for row in reader:
                 if len(row) < 2:
@@ -263,6 +262,7 @@ def auto_run():
             messagebox.showinfo("Kész", f"Final theta0={final_t0:.4f}, Final theta1={final_t1:.4f}\nFinal MSE={final_mse:.4f}")
     threading.Thread(target=run).start()
 
+# Képernyő letörlése
 def clear_all():
     global x, y, steps, current_step, running
     running = False
