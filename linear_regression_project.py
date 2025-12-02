@@ -93,7 +93,6 @@ def log_run_summary(num_points, start_t0, start_t1, final_t0, final_t1, final_ms
         if isinstance(v, (int, np.integer)):
             return str(v)
         if isinstance(v, (float, np.floating)):
-            # Ha egész szám, int-ként
             if v.is_integer():
                 return str(int(v))
             return f"{v:.4f}"
