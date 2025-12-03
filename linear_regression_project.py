@@ -56,7 +56,7 @@ def LinearRegression(X, Y, iterations, alpha=0.001, return_steps=False):
 x = np.array([])
 y = np.array([])
 alpha = 0.01
-iterations = 200
+iterations = 500
 steps = []
 current_step = 0
 running = False
@@ -76,8 +76,11 @@ canvas.grid(row=0, column=0)
 info_frame = tk.Frame(root)
 info_frame.grid(row=0, column=1, sticky="n", padx=10)
 
-info_text = tk.Text(info_frame, width=45, height=20)
-info_text.pack()
+points_text = tk.Text(info_frame, width=25, height=15)
+points_text.pack(pady=(0, 10))
+
+stats_text = tk.Text(info_frame, width=25, height=5, bg="#f0f0f0")
+stats_text.pack()
 
 # Log fájl
 LOG_FILE = "log.csv"
@@ -150,11 +153,18 @@ def draw_line(t0, t1):
 
 def update_info(t0, t1):
     c = cost(t0, t1, x, y) if len(x)>0 else 0.0
-    info_text.delete("1.0", tk.END)
-    info_text.insert(tk.END, f"{'x':>6} {'y':>6} {'theta0':>8} {'theta1':>8} {'MSE':>8}\n")
-    info_text.insert(tk.END, "-"*45 + "\n")
+
+    points_text.delete("1.0", tk.END)
+    points_text.insert(tk.END, f"{'x':>6} {'y':>6}\n")
+    points_text.insert(tk.END, "-"*15 + "\n")
     for xi, yi in zip(x, y):
-        info_text.insert(tk.END, f"{xi:6.2f} {yi:6.2f} {t0:8.4f} {t1:8.4f} {c:8.4f}\n")
+        points_text.insert(tk.END, f"{xi:6.2f} {yi:6.2f}\n")
+
+    stats_text.delete("1.0", tk.END)
+    stats_text.insert(tk.END,"\n")
+    stats_text.insert(tk.END, f"Theta0: {t0:.4f}\n")
+    stats_text.insert(tk.END, f"Theta1: {t1:.4f}\n")
+    stats_text.insert(tk.END, f"MSE:    {c:.4f}")
 
 # Adatok beolvasása, generálása, megadása
 def load_file():
@@ -270,7 +280,8 @@ def clear_all():
     steps = []
     current_step = 0
     canvas.delete("all")
-    info_text.delete("1.0", tk.END)
+    points_text.delete("1.0", tk.END)
+    stats_text.delete("1.0", tk.END)
 
 # Gombok
 main_button_frame = tk.Frame(root)
