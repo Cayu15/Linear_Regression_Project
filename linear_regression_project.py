@@ -62,6 +62,7 @@ current_step = 0
 running = False
 noise = 20
 bias = 50
+last_results = None
 
 # Tkinter
 WIDTH, HEIGHT = 700, 500
@@ -76,10 +77,10 @@ canvas.grid(row=0, column=0)
 info_frame = tk.Frame(root)
 info_frame.grid(row=0, column=1, sticky="n", padx=10)
 
-points_text = tk.Text(info_frame, width=25, height=15)
+points_text = tk.Text(info_frame, width=16, height=15)
 points_text.pack(pady=(0, 10))
 
-stats_text = tk.Text(info_frame, width=25, height=5, bg="#f0f0f0")
+stats_text = tk.Text(info_frame, width=16, height=5, bg="#f0f0f0")
 stats_text.pack()
 
 # Log fájl
@@ -155,8 +156,10 @@ def update_info(t0, t1):
     c = cost(t0, t1, x, y) if len(x)>0 else 0.0
 
     points_text.delete("1.0", tk.END)
-    points_text.insert(tk.END, f"{'x':>6} {'y':>6}\n")
-    points_text.insert(tk.END, "-"*15 + "\n")
+    points_text.tag_configure("center", justify='center')
+    points_text.insert(tk.END, f"{'x':^6} {'y':^6}\n", "center")
+    points_text.insert(tk.END, "-"*13 + "\n", "center")
+    
     for xi, yi in zip(x, y):
         points_text.insert(tk.END, f"{xi:6.2f} {yi:6.2f}\n")
 
@@ -168,7 +171,7 @@ def update_info(t0, t1):
 
 # Adatok beolvasása, generálása, megadása
 def load_file():
-    global x, y
+    global x, y, last_results
     file_path = filedialog.askopenfilename(filetypes=[("CSV files","*.csv"), ("All files","*.*")])
     if not file_path:
         return
@@ -191,12 +194,13 @@ def load_file():
             return
         x = data[:,0]
         y = data[:,1]
+        last_results = None
         draw_points()
     except Exception as e:
         messagebox.showerror("Hiba", f"Nem sikerült betölteni a CSV fájlt:\n{e}")
 
 def generate_data():
-    global x, y, noise, bias
+    global x, y, noise, bias, last_results
     n = simpledialog.askinteger("Generálás", "Pontok száma:", minvalue=2, maxvalue=1000)
     if n is None:
         return
@@ -205,17 +209,18 @@ def generate_data():
     X, Y = make_regression(n_samples=n, n_features=1, n_targets=1, noise=noise, bias=bias)
     x = X.flatten()
     y = Y
+    last_results = None
     draw_points()
 
 def manual_input():
-    global x, y
+    global x, y, last_results
     input_win = tk.Toplevel(root)
     input_win.title("Kézi bevitel")
     tk.Label(input_win, text="Add meg a pontokat soronként x,y formátumban:").pack(padx=10, pady=5)
     text = tk.Text(input_win, width=30, height=15)
     text.pack(padx=10, pady=5)
     def submit():
-        global x, y
+        global x, y, last_results
         try:
             lines = text.get("1.0", tk.END).strip().split("\n")
             x_list, y_list = [], []
@@ -228,6 +233,7 @@ def manual_input():
                 return
             x = np.array(x_list)
             y = np.array(y_list)
+            last_results = None
             draw_points()
             input_win.destroy()
         except Exception as e:
@@ -248,18 +254,18 @@ def prepare_steps():
 def auto_run():
     global running, current_step, steps
     if len(x) == 0:
-        messagebox.showinfo("Adj meg pontokat!")
+        messagebox.showwarning("Hiba", "Kérlek, előbb adj meg pontokat!")
         return
     running = True
     current_step = 0
     res = prepare_steps()
     if res is None:
-        messagebox.showinfo("Nincs adat a futtatáshoz!")
+        messagebox.showwarning("Hiba", "Nincs adat a futtatáshoz!")
         running = False
         return
     steps, summary = res
     def run():
-        global current_step, running
+        global current_step, running, last_results
         while running and current_step < len(steps):
             t0, t1 = steps[current_step]
             draw_line(t0, t1)
@@ -268,20 +274,51 @@ def auto_run():
         running = False
         if steps and len(x) > 0:
             final_t0, final_t1, final_mse = summary
+            last_results = (final_t0, final_t1, final_mse)
             messagebox.showinfo("Kész", f"Final theta0={final_t0:.4f}, Final theta1={final_t1:.4f}\nFinal MSE={final_mse:.4f}")
     threading.Thread(target=run).start()
 
 # Képernyő letörlése
 def clear_all():
-    global x, y, steps, current_step, running
+    global x, y, steps, current_step, running, last_results
     running = False
     x = np.array([])
     y = np.array([])
     steps = []
     current_step = 0
+    last_results = None
     canvas.delete("all")
     points_text.delete("1.0", tk.END)
     stats_text.delete("1.0", tk.END)
+
+# Mentés fájlba
+def save_results():
+    if len(x) == 0 or last_results is None:
+        messagebox.showwarning("Hiba", "Nincs kiszámolt eredmény, amit menteni lehetne!\nFuttasd le először az illesztést.")
+        return
+    
+    file_path = filedialog.asksaveasfilename(defaultextension=".csv",
+                                             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+    if not file_path:
+        return
+    
+    final_t0, final_t1, final_mse = last_results
+    
+    try:
+        with open(file_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
+            writer.writerow(["Parameter", "Ertek"])
+            writer.writerow(["Vegleges Theta0", final_t0])
+            writer.writerow(["Vegleges Theta1", final_t1])
+            writer.writerow(["Vegleges MSE", final_mse])
+            writer.writerow(["Pontok szama", len(x)])
+            writer.writerow([])
+            writer.writerow(["x", "y"])
+            for xi, yi in zip(x, y):
+                writer.writerow([xi, yi])    
+        messagebox.showinfo("Siker", "Sikeres mentés!")
+    except Exception as e:
+        messagebox.showerror("Hiba", f"Nem sikerült a mentés:\n{e}")
 
 # Gombok
 main_button_frame = tk.Frame(root)
@@ -296,6 +333,7 @@ tk.Button(data_frame, text="Pontok megadása", command=manual_input).pack(fill="
 step_frame = tk.Frame(main_button_frame)
 step_frame.pack(side=tk.LEFT, padx=5)
 tk.Button(step_frame, text="Egyenes illesztése", command=auto_run).pack(fill="x", pady=2)
+tk.Button(step_frame, text="Mentés", command=save_results).pack(fill="x", pady=2)
 tk.Button(step_frame, text="Törlés", command=clear_all).pack(fill="x", pady=2)
 
 draw_points()
